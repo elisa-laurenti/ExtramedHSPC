@@ -1,4 +1,4 @@
-# Paired Organs
+# Adult Extramedullary Haematopoiesis
 
 
 The code in this repository pertains to the combined analysis of the data associated to the following studies:
