@@ -35,4 +35,4 @@ and
 
 ``03_visualisations``
 
-- Code focused on creating visual output such as dimensionality reduction embedding scatter plots, violin plots, heatmaps, etc.
+- Code focused on creating graphical output such as embedding plots (UMAP, FDG), violin plots, heatmaps, etc.
