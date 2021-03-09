@@ -19,20 +19,20 @@ and
 
 ## Data transformations
 
-``01_data_transformations``
+``01_data_transformations/``
 
 - Combining and integrating datasets (Seurat3), batch correction (ComBat), QC filtering, log-normalisations, scaling and other pre-processing data transformations required for downstream analyses.
 
 
 ## Multi-tissue analyses
 
-``02_analyses``
+``02_analyses/``
 
 - Exploring the transformed data through methods and techniques such as pseudotime (DPT), cell scoring (including cell cycle), Self-Assembly Manifolds (SAM) and others.
 
 
 ## Visualisations
 
-``03_visualisations``
+``03_visualisations/``
 
 - Code focused on creating graphical output such as embedding plots (UMAP, FDG), violin plots, heatmaps, etc.
