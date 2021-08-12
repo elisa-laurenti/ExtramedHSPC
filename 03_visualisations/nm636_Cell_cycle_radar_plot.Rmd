@@ -1,0 +1,105 @@
+---
+title: "Visualisation %SG2M comparing BM and LDPB (radar plot)"
+author: "Nicole Mende"
+output: html_document
+---
+
+## input: Table with percent S-G2-M phase cells for each Donor/Tissue (columns), split by cluster (rows) = “Table_Dpt_Cell_scores.csv”
+
+## load library
+```{r}
+library(fmsb)
+```
+
+## Prepare data
+```{r}
+#load data
+data <- read.csv("Table_percent_SG2M.csv", header = TRUE)
+SG2M_percent <- data[,-(1:3)]
+
+
+#transform => rows=donor, col=clusters
+SG2M_percent <- as.data.frame(t(SG2M_percent))
+colnames(SG2M_percent) <- c("CL0_HSC/MPP2","CL1_Early LyP1","CL2_MEP2","CL3_ILCp","CL4_HSC/MPP1","CL5_HSC/MPP3","CL6_MyP1","CL7_My-MPP","CL8_EryP","CL9_MyP2","CL10_MEP-MPP","CL11_HSC/MPP4","CL12_MEP1","CL13_MEP cycle","CL14_ND","CL15_MyP4","CL16_MyP3","CL17_EoBasoMCP","CL18_Early LyP2","CL19_HSPC cycle","CL21_HSC/MPP5","CL22_MkP","CL23_EryP/MyP mix","CL24_MDP")
+
+#calculate MEAN and upper/lower limits and mean±STDEV and standard error of mean (SEM)
+
+stats <- as.data.frame(matrix(, nrow = 22, ncol = 25))
+colnames(stats) <- c("X", "CL0_HSC/MPP2","CL1_Early LyP1","CL2_MEP2","CL3_ILCp","CL4_HSC/MPP1","CL5_HSC/MPP3","CL6_MyP1","CL7_My-MPP","CL8_EryP","CL9_MyP2","CL10_MEP-MPP","CL11_HSC/MPP4","CL12_MEP1","CL13_MEP cycle","CL14_ND","CL15_MyP4","CL16_MyP3","CL17_EoBasoMCP","CL18_Early LyP2","CL19_HSPC cycle","CL21_HSC/MPP5","CL22_MkP","CL23_EryP/MyP mix","CL24_MDP")
+
+stats[1,] <- c(110)
+stats[2,] <- c(-10)
+stats$X <- c("max", "min", "BM_mean", "BM_median", "BM_max", "BM_min", "LD-PB_mean", "LD-PB_median", "LD-PB_max", "LD-PB_min",
+             "BM_STDEV","LDPB_STDEV", "BM_mean-SD", "BM_mean+SD", "LDPB_mean-SD", "LDPB_mean+SD", "BM_SEM","LDPB_SEM", "BM_mean-SEM", "BM_mean+SEM", "LDPB_mean-SEM", "LDPB_mean+SEM")
+
+for (i in 2:25) {
+    stats[3,i] <- mean(SG2M_percent[c(7,10,13,14),i-1], na.rm=TRUE)
+    stats[4,i] <- median(SG2M_percent[c(7,10,13,14),i-1], na.rm=TRUE)
+    stats[5,i] <- max(SG2M_percent[c(7,10,13,14),i-1], na.rm=TRUE)
+    stats[6,i] <- min(SG2M_percent[c(7,10,13,14),i-1], na.rm=TRUE)
+    
+    stats[7,i] <- mean(SG2M_percent[1:6,i-1], na.rm=TRUE)
+    stats[8,i] <- median(SG2M_percent[1:6,i-1], na.rm=TRUE)
+    stats[9,i] <- max(SG2M_percent[1:6,i-1], na.rm=TRUE)
+    stats[10,i] <- min(SG2M_percent[1:6,i-1], na.rm=TRUE)
+    
+    stats[11,i] <- sd(SG2M_percent[c(7,10,13,14),i-1], na.rm=TRUE)
+    stats[12,i] <- sd(SG2M_percent[1:6,i-1], na.rm=TRUE)
+    stats[13,i] <- (stats[3,i])-(stats[11,i])
+    stats[14,i] <- (stats[3,i])+(stats[11,i])
+    stats[15,i] <- (stats[7,i])-(stats[12,i])
+    stats[16,i] <- (stats[7,i])+(stats[12,i])
+    
+    stats[17,i] <- sd(SG2M_percent[c(7,10,13,14),i-1], na.rm=TRUE)/sqrt(length(SG2M_percent[c(7,10,13,14),i-1]) - length(SG2M_percent[c(7,10,13,14),i-1][is.na(SG2M_percent[c(7,10,13,14),i-1])]) )
+    stats[18,i] <- sd(SG2M_percent[1:6,i-1], na.rm=TRUE)/sqrt(length(SG2M_percent[1:6,i-1]) - length(SG2M_percent[1:6,i-1][is.na(SG2M_percent[1:6,i-1])]))
+    stats[19,i] <- (stats[3,i])-(stats[17,i])
+    stats[20,i] <- (stats[3,i])+(stats[17,i])
+    stats[21,i] <- (stats[7,i])-(stats[18,i])
+    stats[22,i] <- (stats[7,i])+(stats[18,i]) 
+        }
+
+## exclusing_all clusters with <= 30 cells in most donors of at least one tissue (BM or LDPB)
+stats_2 <- stats[,-c(20,21, 22, 23,24,25)]
+
+### sort stats early to late progenitors
+stats_sorted <- stats_2[,c(6,2,7,13,9,12,14,4,8,11, 15, 10, 19, 18,17, 3, 5, 16)]
+```
+
+
+## Plot radar plot (Figure 3b, plot appearance was subsequently modified in inkscape for figure)
+```{r}
+# Define fill colors
+colors_fill <- c(scales::alpha("blue", 0),
+                 scales::alpha("blue", 0.2),
+                 scales::alpha("white", 1),
+                 scales::alpha("tomato", 0),
+                 scales::alpha("tomato", 0.4),  
+                  scales::alpha("white", 1))
+
+# Define line colors
+colors_line <- c(scales::alpha("darkblue", 1),
+                 scales::alpha("darkblue", 0.2),
+                 scales::alpha("darkblue", 0.2),
+                 scales::alpha("tomato", 1),
+                 scales::alpha("tomato", 0.2),
+                 scales::alpha("tomato", 0.2))
+
+
+# Plot %SG2M (MEAN ± SD, HSPC groups sorted early to late)
+
+    #pdf("file_name.pdf") 
+radarchart(stats_sorted[c(1,2,3,14,13, 7,16,15), c(1:18)], 
+           seg = 12,  # Number of axis segments
+           title = "%SG2M_mean ± SD_sorted early to late",
+           pcol = colors_line,
+           pfcol = colors_fill,
+           plwd = 2,
+           plty = c(1,1,1,1,1,1),
+           cglcol = "darkgrey",
+           vlcex=0.6)
+legend(x=1, 
+       y=1.3, 
+       legend = (stats[c(3,7),1]), 
+       bty = "n", pch=20 , col = c("darkblue", "tomato"), cex = 1, pt.cex = 2)
+    #dev.off()
+```

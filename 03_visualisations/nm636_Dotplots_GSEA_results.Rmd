@@ -1,0 +1,99 @@
+---
+title: "Dot plots of GSEA results - selected pathways comparing early MEMBPs and MyPs"
+author: "Nicole Mende"
+---
+
+## input: Table with all GSEA results (each sheet contains results of a different comparison) = “Table_GSEA.xlsx”
+
+## Load libraries
+```{r}
+library(ggplot2)
+library(viridis)
+library(readxl)
+```
+
+
+## BM vs SPL - Preparation of data
+```{r}
+## Read GSEA data files_hallmark_anal
+MEP_DOD1 <- read_excel("Table_GSEA.xlsx", 5)
+MEP_DOD2 <- read_excel("Table_GSEA.xlsx", 6)
+MEP_DOD4 <- read_excel("Table_GSEA.xlsx", 7)
+MyP_DOD1 <- read_excel("Table_GSEA.xlsx", 9)
+MyP_DOD2 <- read_excel("Table_GSEA.xlsx", 10)
+MyP_DOD4 <- read_excel("Table_GSEA.xlsx", 11)
+
+## keep only those with FDR<0.05 and annotate with HSPC group that was compared
+MEP_DOD1 <- MEP_DOD1[which(MEP_DOD1$`FDR q-val`<0.05),]
+MEP_DOD2 <- MEP_DOD2[which(MEP_DOD2$`FDR q-val`<0.05),]
+MEP_DOD4 <- MEP_DOD4[which(MEP_DOD4$`FDR q-val`<0.05),]
+MyP_DOD1 <- MyP_DOD1[which(MyP_DOD1$`FDR q-val`<0.05),]
+MyP_DOD2 <- MyP_DOD2[which(MyP_DOD2$`FDR q-val`<0.05),]
+MyP_DOD4 <- MyP_DOD4[which(MyP_DOD4$`FDR q-val`<0.05),]
+
+MEP_DOD1["Anno"] <- "MEP_DOD1"
+MEP_DOD2["Anno"] <- "MEP_DOD2"
+MEP_DOD4["Anno"] <- "MEP_DOD4"
+MyP_DOD1["Anno"] <- "MyP_DOD1"
+MyP_DOD2["Anno"] <- "MyP_DOD2"
+MyP_DOD4["Anno"] <- "MyP_DOD4"
+
+## rbind all
+hallmark <- rbind(MEP_DOD1, MEP_DOD2, MEP_DOD4, MyP_DOD1, MyP_DOD2, MyP_DOD4)
+```
+
+## BM vs SPL - Plot all pathways with FDR <0.05 as dot plot
+```{r}
+order <- c("MEP_DOD1", "MEP_DOD2", "MEP_DOD4", "MyP_DOD1", "MyP_DOD2", "MyP_DOD4")
+
+ggplot(hallmark, aes(x= Anno, y= NAME)) + scale_x_discrete(breaks = c("MEP_DOD1", "MEP_DOD2", "MEP_DOD4", "MyP_DOD1", "MyP_DOD2", "MyP_DOD4"), labels = c("MEP_DOD1", "MEP_DOD2", "MEP_DOD4", "MyP_DOD1", "MyP_DOD2", "MyP_DOD4")) + geom_point(aes(col=NES, size=-`FDR q-val`)) + scale_colour_viridis(direction=-1, option = 'plasma', limits=c(-3,3), breaks = c(-3,-2,-1,0,1,2,3)) +   theme(axis.text.x = element_text(size=10, angle=90,hjust=0.95,vjust=0.2), axis.text.y = element_text(size=8), axis.title.x = element_blank(), axis.title.y = element_blank()) +    scale_size_continuous(range=c(0.5,3), limits = c(-0.05,0))  + coord_fixed(0.9)
+```
+
+## BM vs SPL - Plot selected pathways as dot plot (Figure S3b)
+```{r}
+## selected list of pathways
+hallmark_select <- subset(hallmark, NAME == "HALLMARK_DNA_REPAIR" | NAME == "HALLMARK_E2F_TARGETS"| NAME == "HALLMARK_G2M_CHECKPOINT" | NAME == "HALLMARK_MYC_TARGETS_V1"| NAME == "HALLMARK_MYC_TARGETS_V2"| NAME == "HALLMARK_OXIDATIVE_PHOSPHORYLATION"| NAME == "HALLMARK_MTORC1_SIGNALING"| NAME == "HALLMARK_INFLAMMATORY_RESPONSE"| NAME == "HALLMARK_TNFA_SIGNALING_VIA_NFKB")   
+
+name_order <- c("HALLMARK_DNA_REPAIR", "HALLMARK_E2F_TARGETS", "HALLMARK_G2M_CHECKPOINT",  "HALLMARK_MYC_TARGETS_V1", "HALLMARK_MYC_TARGETS_V2", "HALLMARK_OXIDATIVE_PHOSPHORYLATION", "HALLMARK_MTORC1_SIGNALING", "HALLMARK_INFLAMMATORY_RESPONSE", "HALLMARK_TNFA_SIGNALING_VIA_NFKB")
+
+ggplot(hallmark_select, aes(x= factor(Anno, level=order), y= factor(NAME, level = name_order)))  + geom_point(aes(fill=NES, size=-`FDR q-val`),pch=21) + scale_fill_viridis(direction=-1, option = 'plasma', limits=c(-3,3), breaks = c(-3,-2,-1,0,1,2,3))  + theme_bw() +   theme(axis.text.x = element_text(size=8, angle=90,hjust=0.95,vjust=0.2), axis.text.y = element_text(size=10), axis.title.x = element_blank(), axis.title.y = element_blank(), panel.grid.major.y = element_blank()) +    scale_size_continuous(range=c(0.5,3), limits = c(-0.05,0))  + coord_fixed(1.1) 
+#ggsave("Early_Prog_bybranch_bydonor_BMvsSPL_GSEA_MSidDB_Hallmark_selected.svg")
+```
+
+
+
+
+## BM vs LDPB - Preparation of data
+```{r}
+## Read GSEA data files_hallmark_anal
+MEP <- read_excel("Table_GSEA.xlsx", 8)
+MyP <- read_excel("Table_GSEA.xlsx", 12)
+
+## keep only those with FDR<0.05 and annotate with HSPC group that was compared
+MEP <- MEP[which(MEP$`FDR q-val`<0.05),]
+MyP <- MyP[which(MyP$`FDR q-val`<0.05),]
+
+MEP["Anno"] <- "MEP"
+MyP["Anno"] <- "MyP"
+
+## rbind all
+hallmark <- rbind(MEP, MyP)
+```
+
+## BM vs LDPB - Plot all pathways with FDR <0.05 as dot plot
+```{r}
+order <- c("MEP", "MyP")
+
+ggplot(hallmark, aes(x= Anno, y= NAME)) + scale_x_discrete(breaks = c("MEP_DOD1", "MEP_DOD2", "MEP_DOD4", "MyP_DOD1", "MyP_DOD2", "MyP_DOD4"), labels = c("MEP_DOD1", "MEP_DOD2", "MEP_DOD4", "MyP_DOD1", "MyP_DOD2", "MyP_DOD4")) + geom_point(aes(col=NES, size=-`FDR q-val`)) + scale_colour_viridis(direction=-1, option = 'plasma', limits=c(-3,3), breaks = c(-3,-2,-1,0,1,2,3)) +   theme(axis.text.x = element_text(size=10, angle=90,hjust=0.95,vjust=0.2), axis.text.y = element_text(size=8), axis.title.x = element_blank(), axis.title.y = element_blank()) +    scale_size_continuous(range=c(0.5,3), limits = c(-0.05,0))  + coord_fixed(0.9)
+```
+
+## BM vs LDPB - Plot selected pathways as dot plot  (Figure S3c)
+```{r}
+## selected list of pathways
+hallmark_select <- subset(hallmark, NAME == "HALLMARK_DNA_REPAIR" | NAME == "HALLMARK_E2F_TARGETS"| NAME == "HALLMARK_G2M_CHECKPOINT" | NAME == "HALLMARK_MITOTIC_SPINDLE"| NAME == "HALLMARK_MYC_TARGETS_V1"| NAME == "HALLMARK_MYC_TARGETS_V2"| NAME == "HALLMARK_GLYCOLYSIS"| NAME == "HALLMARK_OXIDATIVE_PHOSPHORYLATION"| NAME == "HALLMARK_FATTY_ACID_METABOLISM"| NAME == "HALLMARK_REACTIVE_OXYGEN_SPECIES_PATHWAY"| NAME == "HALLMARK_MTORC1_SIGNALING"| NAME == "HALLMARK_PI3K_AKT_MTOR_SIGNALING"| NAME == "HALLMARK_IL2_STAT5_SIGNALING"|  NAME == "HALLMARK_IL6_JAK_STAT3_SIGNALING"| NAME == "HALLMARK_KRAS_SIGNALING_UP" | NAME == "HALLMARK_HEME_METABOLISM" )   
+
+name_order <- c("HALLMARK_DNA_REPAIR", "HALLMARK_E2F_TARGETS", "HALLMARK_G2M_CHECKPOINT", "HALLMARK_MITOTIC_SPINDLE", "HALLMARK_MYC_TARGETS_V1", "HALLMARK_MYC_TARGETS_V2", "HALLMARK_GLYCOLYSIS", "HALLMARK_OXIDATIVE_PHOSPHORYLATION", "HALLMARK_FATTY_ACID_METABOLISM", "HALLMARK_REACTIVE_OXYGEN_SPECIES_PATHWAY", "HALLMARK_MTORC1_SIGNALING","HALLMARK_PI3K_AKT_MTOR_SIGNALING","HALLMARK_IL2_STAT5_SIGNALING", "HALLMARK_IL6_JAK_STAT3_SIGNALING", "HALLMARK_KRAS_SIGNALING_UP", "HALLMARK_HEME_METABOLISM")
+
+ggplot(hallmark_select, aes(x= factor(Anno, level=order), y= factor(NAME, level = name_order)))  + geom_point(aes(fill=NES, size=-`FDR q-val`),pch=21) + scale_fill_viridis(direction=-1, option = 'plasma', limits=c(-3,3), breaks = c(-3,-2,-1,0,1,2,3))  + theme_bw() +   theme(axis.text.x = element_text(size=8, angle=90,hjust=0.95,vjust=0.2), axis.text.y = element_text(size=10), axis.title.x = element_blank(), axis.title.y = element_blank(), panel.grid.major.y = element_blank()) +    scale_size_continuous(range=c(0.5,3), limits = c(-0.05,0))  + coord_fixed(1.1) 
+#ggsave("Early_Prog_bybranch_bydonor_BMvsLDPB_GSEA_MSidDB_Hallmark_selected.svg")
+```

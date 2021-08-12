@@ -1,0 +1,159 @@
+---
+title: Countour plots for each tissue _ normalising data to 2500 cells per tissue
+  / Donor
+author: "Nicole Mende"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## input: Table with cell scores/pseudotime/UMAP coordinates (columns) for each individual cell (rows) = “Table_Dpt_Cell_scores.csv”
+
+## Load libraries
+```{r}
+library(ggplot2)
+library(grid)
+```
+
+## Preparation of data
+```{r}
+## load data file
+data <- read.csv("Table_Dpt_Cell_scores.csv", header = TRUE)
+
+## subset by Donor and tissue
+DOD_BM <- subset(data, Tissue=="BM")
+DOD_SPL <- subset(data, Tissue=="SPL")
+PB <- subset(data, Tissue=="PB")
+
+DOD_BM_d1 <- DOD_BM[(grep("DOD1", DOD_BM$Donor)),]
+DOD_BM_d2 <- DOD_BM[(grep("DOD2", DOD_BM$Donor)),]
+DOD_BM_d3 <- DOD_BM[(grep("DOD3", DOD_BM$Donor)),]
+DOD_BM_d4 <- DOD_BM[(grep("DOD4", DOD_BM$Donor)),]
+
+DOD_SPL_d1 <- DOD_SPL[(grep("DOD1", DOD_SPL$Donor)),]
+DOD_SPL_d2 <- DOD_SPL[(grep("DOD2", DOD_SPL$Donor)),]
+DOD_SPL_d4 <- DOD_SPL[(grep("DOD4", DOD_SPL$Donor)),]
+
+DOD_PB_d1 <- PB[(grep("DOD1", PB$Donor)),]
+DOD_PB_d2 <- PB[(grep("DOD2", PB$Donor)),]
+
+LD_PB_BP1c <- PB[(grep("BP1c", PB$Donor)),]
+LD_PB_BP37d <- PB[(grep("BP37d", PB$Donor)),]
+LD_PB_BP59h <- PB[(grep("BP59h", PB$Donor)),]
+LD_PB_BP62j <- PB[(grep("BP62j", PB$Donor)),]
+LD_PB_BP74 <- PB[(grep("BP74", PB$Donor)),]
+LD_PB_TQ198 <- PB[(grep("TQ198", PB$Donor)),]
+```
+
+
+
+## Randomly select 2500 cells from each Donor / Tissue before combining all samples of the same tissues (DODBM, DODPSL, DODPB, LDPB)
+```{r}
+## BM
+R1 <- sample(row.names(DOD_BM_d1),size=2500)
+DOD_BM_d1_R <- DOD_BM_d1[c(R1),]
+
+R1 <- sample(row.names(DOD_BM_d2),size=2500)
+DOD_BM_d2_R <- DOD_BM_d2[c(R1),]
+
+R1 <- sample(row.names(DOD_BM_d3),size=2500)
+DOD_BM_d3_R <- DOD_BM_d3[c(R1),]
+
+R1 <- sample(row.names(DOD_BM_d4),size=2500)
+DOD_BM_d4_R <- DOD_BM_d4[c(R1),]
+
+DOD_BM_R <- rbind(DOD_BM_d1_R, DOD_BM_d2_R,DOD_BM_d3_R, DOD_BM_d4_R)
+
+
+## SPL
+R1 <- sample(row.names(DOD_SPL_d1),size=2500)
+DOD_SPL_d1_R <- DOD_SPL_d1[c(R1),]
+
+R1 <- sample(row.names(DOD_SPL_d2),size=2500)
+DOD_SPL_d2_R <- DOD_SPL_d2[c(R1),]
+
+R1 <- sample(row.names(DOD_SPL_d4),size=2500)
+DOD_SPL_d4_R <- DOD_SPL_d4[c(R1),]
+
+DOD_SPL_R <- rbind(DOD_SPL_d1_R, DOD_SPL_d2_R,DOD_SPL_d4_R)
+
+
+## LD-PB
+R1 <- sample(row.names(DOD_PB_d1),size=2500)
+DOD_PB_d1_R <- DOD_PB_d1[c(R1),]
+
+R1 <- sample(row.names(DOD_PB_d2),size=2500)
+DOD_PB_d2_R <- DOD_PB_d2[c(R1),]
+
+DOD_PB_R <- rbind(DOD_PB_d1_R, DOD_PB_d2_R)
+
+
+## LD-PB
+R1 <- sample(row.names(LD_PB_BP1c),size=2500)
+LD_PB_d1_R <- LD_PB_BP1c[c(R1),]
+
+R1 <- sample(row.names(LD_PB_BP37d),size=2500)
+LD_PB_d2_R <- LD_PB_BP37d[c(R1),]
+
+R1 <- sample(row.names(LD_PB_BP62j),size=2500)
+LD_PB_d3_R <- LD_PB_BP62j[c(R1),]
+
+R1 <- sample(row.names(LD_PB_BP74),size=2500)
+LD_PB_d4_R <- LD_PB_BP74[c(R1),]
+
+R1 <- sample(row.names(LD_PB_TQ198),size=2500)
+LD_PB_d5_R <- LD_PB_TQ198[c(R1),]
+
+R1 <- sample(row.names(LD_PB_BP59h),size=2500)
+LD_PB_d6_R <- LD_PB_BP59h[c(R1),]
+
+LD_PB_R <- rbind(LD_PB_d1_R, LD_PB_d2_R,LD_PB_d3_R, LD_PB_d4_R,LD_PB_d5_R, LD_PB_d6_R)
+```
+
+
+
+## Plot contour for each tissue with limit max=0.04, bins = 10 (Figure 2a - code will generate slightly different contour plots each time as it uses ransomly selected cells)
+```{r}
+commonTheme = list(labs(color="Density",fill="Density",
+                        x="-UMAP2",
+                        y="UMAP1"),
+                   theme_bw(),
+                  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+                  )
+
+#BM
+BM_plot <- ggplot(data=DOD_BM_R,aes(-UMAP2,UMAP1)) + geom_point(cex=0.2, colour = "#e3e3e3") + xlim(-15,15) + ylim (-10,10) + stat_density2d(aes(fill=..level..,alpha=..level..), geom='polygon',colour='black', cex=0.2, bins=10) + 
+  scale_fill_continuous(low="#b8b1cc",high="#2a1142", limits = c(0, 0.04), breaks = c(0, 0.015, 0.025, 0.035)) +
+  guides(alpha="none") + commonTheme +   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA), axis.title = element_blank())
+
+BM_plot + theme(aspect.ratio=1) 
+#ggsave("Contour_BM.png", bg="transparent", dpi = 200)
+
+
+#SPL
+SPL_plot <- ggplot(data=DOD_SPL_R,aes(-UMAP2,UMAP1)) + geom_point(cex=0.2, colour = "#e3e3e3") + xlim(-15,15) + ylim (-10,10) + stat_density2d(aes(fill=..level..,alpha=..level..), geom='polygon',colour='black', cex=0.2, bins=10) + 
+  scale_fill_continuous(low="#b8b1cc",high="#2a1142", limits = c(0, 0.04), breaks = c(0, 0.015, 0.025, 0.035)) +
+  guides(alpha="none") + commonTheme +   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA), axis.title = element_blank())
+
+SPL_plot + theme(aspect.ratio=1) 
+#ggsave("Contour_SPL.png", bg="transparent", dpi = 200)
+
+
+#DODPB
+DODPB_plot <- ggplot(data=DOD_PB_R,aes(-UMAP2,UMAP1)) + geom_point(cex=0.2, colour = "#e3e3e3") + xlim(-15,15) + ylim (-10,10) + stat_density2d(aes(fill=..level..,alpha=..level..), geom='polygon',colour='black', cex=0.2, bins=10) + 
+  scale_fill_continuous(low="#b8b1cc",high="#2a1142", limits = c(0, 0.04), breaks = c(0, 0.015, 0.025, 0.035)) +
+  guides(alpha="none") + commonTheme +   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA), axis.title = element_blank())
+
+DODPB_plot + theme(aspect.ratio=1) 
+#ggsave("Contour_DODPB.png", bg="transparent", dpi = 200)
+
+
+#LDPB
+LDPB_plot <- ggplot(data=LD_PB_R,aes(-UMAP2,UMAP1)) + geom_point(cex=0.2, colour = "#e3e3e3") + xlim(-15,15) + ylim (-10,10) + stat_density2d(aes(fill=..level..,alpha=..level..), geom='polygon',colour='black', cex=0.2, bins=10) + 
+  scale_fill_continuous(low="#b8b1cc",high="#2a1142", limits = c(0, 0.04), breaks = c(0, 0.015, 0.025, 0.035)) +
+  guides(alpha="none") + commonTheme +  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA), axis.title = element_blank())
+
+LDPB_plot + theme(aspect.ratio=1) 
+#ggsave("Contour_LDPB.png", bg="transparent", dpi = 200)
+```

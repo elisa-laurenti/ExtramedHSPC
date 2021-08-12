@@ -1,0 +1,383 @@
+---
+title: "Visualisation cell scores / pseudotime"
+author: "Nicole Mende"
+subtitle: lineage scores, Ery/Meg scores, medullary/extramedullary scores, pseudotime
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### input: Table with cell scores/pseudotime/UMAP coordinates (columns) for each individual cell (rows) = "Table_Dpt_Cell_scores.csv"
+
+## load libraries
+```{r}
+library(ggplot2)
+library("plot3D")
+```
+
+## Preparation of data
+```{r}
+## load data file
+scores <- read.csv("Table_Dpt_Cell_scores.csv", header = TRUE)
+
+
+## rename tissues: "DODBM", "DODSPL", "DODPB", "LDPB"  
+#DODBM
+subsetBM <- subset(scores, Tissue == "BM")
+subsetBM$Tissue <- "DODBM"
+#DODSPL
+subsetSPL <- subset(scores, Tissue == "SPL")
+subsetSPL$Tissue <- "DODSPL"
+#DODPB
+subsetPB <- subset(scores, Tissue == "PB")
+subsetDODPB <- subset(subsetPB, Donor == "DOD1" | Donor == "DOD2")
+subsetDODPB$Tissue <- "DODPB"
+#LDPB
+subsetLDPB <- subset(scores, Donor == "BP1c" |  Donor == "BP37d" | Donor == "BP59h" | Donor == "BP62j" | Donor == "BP74" | Donor == "TQ198")
+subsetLDPB$Tissue <- "LDPB"
+
+scores <- rbind(subsetBM, subsetSPL, subsetDODPB, subsetLDPB)
+
+
+## Add population annotations
+LeidenAnno <- matrix(nrow=27, ncol = 2)
+colnames(LeidenAnno) <- c("Cluster", "Anno")
+LeidenAnno[,1] <- c("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26")
+LeidenAnno[,2] <- c("CL0_HSC/MPP2","CL1_Early LyP1","CL2_MEP2","CL3_ILCp","CL4_HSC/MPP1","CL5_HSC/MPP3","CL6_MyP1","CL7_My-MPP","CL8_EryP","CL9_MyP2","CL10_MEP-MPP","CL11_HSC/MPP4","CL12_MEP1","CL13_MEP cycle","CL14_ND","CL15_MyP4","CL16_MyP3","CL17_EoBasoMCP","CL18_Early LyP2","CL19_HSPC cycle","CL20_mature mono/MΦ","CL21_HSC/MPP5","CL22_MkP","CL23_EryP/MyP mix","CL24_MDP","CL25_mature T", "CL26_niche")
+
+Pops_AllCells <- as.numeric(scores$Cluster_leiden.1.2)
+for (i in 1:27)
+  {Pops_pos <- which(Pops_AllCells == i-1)
+  Pops_AllCells[Pops_pos] <- as.character(LeidenAnno[i,2])
+}
+
+scores_anno <- cbind(Pops_AllCells, scores)
+
+
+#subset by HSPC groups <- combine in table "lin-group"
+lin_group <- as.character(scores_anno$Pops_AllCells)
+
+HSCMPP <- which(lin_group == "CL0_HSC/MPP2" | lin_group == "CL4_HSC/MPP1" | lin_group == "CL5_HSC/MPP3" | lin_group == "CL11_HSC/MPP4" | lin_group == "CL21_HSC/MPP5")
+lin_group[HSCMPP] <- as.character("2_HSC/MPP")
+
+MPP_primed <- which(lin_group == "CL10_MEP-MPP" | lin_group == "CL7_My-MPP")
+lin_group[MPP_primed] <- as.character("3_MPP_primed")
+
+MEPs <- which(lin_group == "CL12_MEP1" | lin_group == "CL2_MEP2")
+lin_group[MEPs] <- as.character("8_early_EMEBM")
+
+late_EMBM <- which(lin_group == "CL8_EryP" | lin_group == "CL13_MEP cycle" | lin_group == "CL22_MkP" | lin_group == "CL17_EoBasoMCP")
+lin_group[late_EMBM] <- as.character("4_late_EMEBM")
+
+EarlyMyP <- which(lin_group == "CL6_MyP1" | lin_group == "CL9_MyP2") 
+lin_group[EarlyMyP] <- as.character("9_early_MyP")
+
+LateMyP <- which(lin_group == "CL16_MyP3" | lin_group == "CL15_MyP4") 
+lin_group[LateMyP] <- as.character("5_late_MyP")
+
+LyP <- which(lin_group == "CL18_Early LyP2" | lin_group == "CL1_Early LyP1" | lin_group == "CL3_ILCp") 
+lin_group[LyP] <- as.character("6_LyP")
+
+ND <- which(lin_group == "CL14_ND") 
+lin_group[ND] <- as.character("0_ND")
+
+MDP <- which(lin_group == "CL24_MDP") 
+lin_group[MDP] <- as.character("7_MDP")
+
+EryMyMix <- which(lin_group == "CL23_EryP/MyP mix" | lin_group == "CL19_HSPC cycle") 
+lin_group[EryMyMix] <- as.character("1_EryMyMix")
+
+lin_group <- cbind(lin_group, scores_anno)
+
+```
+
+
+
+## 3D plots lin scores using all cells (Figure 1d)
+```{r}
+# MEP vs GMP vs MLP score
+   #svg("file_name.svg")
+scatter3D(x= lin_group$MEP.score, y = lin_group$MLP.score, z= lin_group$GMP.score, clab = c("HSPC group"),  bty = "b2", NAcol = "white", phi = 20, theta = 140,
+          colvar = as.integer(lin_group$lin_group), 
+          col = c("#030303", "#780158", "#858585", "#d9d9d9", "#fa1b1b","#15690c", "#388eff", "#80eeff","#fab71b","#21d60d"),
+          pch = 20, cex=0.5, ticktype = "detailed",
+          colkey = list(at = c(1,2,3,4,5,6,7,8,9,10), side =4,
+          addlines = TRUE, length = 0.5, width = 0.5,
+          labels = c("ND", "EryMyMix", "HSC/MPP","HSC/MPP_trans", "late_EMEBM", "late_MyP", "LyP", "MDP",  "early_EMEBM","early_MyP"), font = 1) ,
+          main = "All_cells", xlab = "MEP.score",
+          ylab ="MLP_score", zlab = "GMP_score",
+          xlim=c(-0.2,0.6), ylim=c(-0.2,0.9), zlim=c(-0.2,0.9))
+   #dev.off()
+
+
+# MEP vs GMP vs HSC score
+   #svg("file_name.svg")
+scatter3D(x= lin_group$MEP.score, y = lin_group$HSC.score, z= lin_group$GMP.score, clab = c("HSPC group"),  bty = "b2", NAcol = "white", phi = 20, theta = 140,
+          colvar = as.integer(lin_group$lin_group), 
+          col = c("#030303", "#780158", "#858585", "#d9d9d9", "#fa1b1b","#15690c", "#388eff", "#80eeff","#fab71b","#21d60d"),
+          pch = 20, cex=0.5, ticktype = "detailed",
+          colkey = list(at = c(1,2,3,4,5,6,7,8,9,10), side =4,
+          addlines = TRUE, length = 0.5, width = 0.5,
+          labels = c("ND", "EryMyMix", "HSC/MPP","HSC/MPP_trans", "late_EMEBM", "late_MyP", "LyP", "MDP",  "early_EMEBM","early_MyP"), font = 1)  ,
+          main = "All_cells", xlab = "MEP.score",
+          ylab ="HSC_score", zlab = "GMP_score",
+          xlim=c(-0.2,0.6), ylim=c(-0.2,0.5), zlim=c(-0.2,0.9))
+   #dev.off()
+```
+
+
+## 3D plots lin scores by tissues (Figure 2f)
+```{r}
+#DODBM
+BM <- subset(lin_group, Tissue == "DODBM")
+scatter3D(x= BM$MEP.score, y = BM$MLP.score, z= BM$GMP.score, clab = c("HSPC group"),  bty = "b2", NAcol = "white", phi = 20, theta = 140,
+          colvar = as.integer(BM$lin_group), 
+          col = c("#030303", "#780158", "#858585", "#d9d9d9", "#fa1b1b","#15690c", "#388eff", "#80eeff","#fab71b","#21d60d"),
+          pch = 20, cex=0.5, ticktype = "detailed",
+          colkey = list(at = c(1,2,3,4,5,6,7,8,9,10), side =4,
+          addlines = TRUE, length = 0.5, width = 0.5,
+          labels = c("ND", "EryMyMix", "HSC/MPP","HSC/MPP_trans", "late_EMEBM", "late_MyP", "LyP", "MDP",  "early_EMEBM","early_MyP"), font = 1) ,
+          main = "DODBM", xlab = "MEP.score",
+          ylab ="MLP_score", zlab = "GMP_score",
+          xlim=c(-0.2,0.6), ylim=c(-0.2,0.9), zlim=c(-0.2,0.9))
+
+
+
+#DODSPL
+SPL <- subset(lin_group, Tissue == "DODSPL")
+scatter3D(x= SPL$MEP.score, y = SPL$MLP.score, z= SPL$GMP.score, clab = c("HSPC group"),  bty = "b2", NAcol = "white", phi = 20, theta = 140,
+          colvar = as.integer(SPL$lin_group), 
+          col = c("#030303", "#780158", "#858585", "#d9d9d9", "#fa1b1b","#15690c", "#388eff", "#80eeff","#fab71b","#21d60d"),
+          pch = 20, cex=0.5, ticktype = "detailed",
+          colkey = list(at = c(1,2,3,4,5,6,7,8,9,10), side =4,
+          addlines = TRUE, length = 0.5, width = 0.5,
+          labels = c("ND", "EryMyMix", "HSC/MPP","HSC/MPP_trans", "late_EMEBM", "late_MyP", "LyP", "MDP",  "early_EMEBM","early_MyP"), font = 1) ,
+          main = "DODSPL", xlab = "MEP.score",
+          ylab ="MLP_score", zlab = "GMP_score",
+          xlim=c(-0.2,0.6), ylim=c(-0.2,0.9), zlim=c(-0.2,0.9))
+
+
+
+#DODPB
+DODPB <- subset(lin_group, Tissue == "DODPB")
+scatter3D(x= DODPB$MEP.score, y = DODPB$MLP.score, z= DODPB$GMP.score, clab = c("HSPC group"),  bty = "b2", NAcol = "white", phi = 20, theta = 140,
+          colvar = as.integer(DODPB$lin_group), 
+          col = c("#030303", "#780158", "#858585", "#d9d9d9", "#fa1b1b","#15690c", "#388eff", "#80eeff","#fab71b","#21d60d"),
+          pch = 20, cex=0.5, ticktype = "detailed",
+          colkey = list(at = c(1,2,3,4,5,6,7,8,9,10), side =4,
+          addlines = TRUE, length = 0.5, width = 0.5,
+          labels = c("ND", "EryMyMix", "HSC/MPP","HSC/MPP_trans", "late_EMEBM", "late_MyP", "LyP", "MDP",  "early_EMEBM","early_MyP"), font = 1) ,
+          main = "DODPB", xlab = "MEP.score",
+          ylab ="MLP_score", zlab = "GMP_score",
+          xlim=c(-0.2,0.6), ylim=c(-0.2,0.9), zlim=c(-0.2,0.9))
+
+
+
+#LDPB
+LDPB <- subset(lin_group, Tissue == "LDPB")
+scatter3D(x= LDPB$MEP.score, y = LDPB$MLP.score, z= LDPB$GMP.score, clab = c("HSPC group"),  bty = "b2", NAcol = "white", phi = 20, theta = 140,
+          colvar = as.integer(LDPB$lin_group), 
+          col = c("#030303", "#780158", "#858585", "#d9d9d9", "#fa1b1b","#15690c", "#388eff", "#80eeff","#fab71b","#21d60d"),
+          pch = 20, cex=0.5, ticktype = "detailed",
+          colkey = list(at = c(1,2,3,4,5,6,7,8,9,10), side =4,
+          addlines = TRUE, length = 0.5, width = 0.5,
+          labels = c("ND", "EryMyMix", "HSC/MPP","HSC/MPP_trans", "late_EMEBM", "late_MyP", "LyP", "MDP",  "early_EMEBM","early_MyP"), font = 1) ,
+          main = "LDPB", xlab = "MEP.score",
+          ylab ="MLP_score", zlab = "GMP_score",
+          xlim=c(-0.2,0.6), ylim=c(-0.2,0.9), zlim=c(-0.2,0.9))
+```
+
+# Plot split violins Ery/Meg-score (Figure S2c)
+```{r}
+#split violin function using ggplot
+GeomSplitViolin <- ggproto(
+  "GeomSplitViolin", 
+  GeomViolin, 
+  draw_group = function(self, data, ..., draw_quantiles = NULL) {
+    data <- transform(data, 
+                      xminv = x - violinwidth * (x - xmin), 
+                      xmaxv = x + violinwidth * (xmax - x))
+    grp <- data[1,'group']
+    newdata <- plyr::arrange(
+      transform(data, x = if(grp%%2==1) xminv else xmaxv), 
+      if(grp%%2==1) y else -y
+    )
+    newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+    newdata[c(1,nrow(newdata)-1,nrow(newdata)), 'x'] <- round(newdata[1, 'x']) 
+    if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+      stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 1))
+      quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
+      aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+      aesthetics$alpha <- rep(1, nrow(quantiles))
+      both <- cbind(quantiles, aesthetics)
+      quantile_grob <- GeomPath$draw_panel(both, ...)
+      ggplot2:::ggname("geom_split_violin", 
+                       grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+    } else {
+      ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+    }
+  }
+)
+
+geom_split_violin <- function (mapping = NULL, 
+                               data = NULL, 
+                               stat = "ydensity", 
+                               position = "identity", ..., 
+                               draw_quantiles = NULL, 
+                               trim = TRUE, 
+                               scale = "area", 
+                               na.rm = FALSE, 
+                               show.legend = NA, 
+                               inherit.aes = TRUE) {
+  layer(data = data, 
+        mapping = mapping, 
+        stat = stat, 
+        geom = GeomSplitViolin, 
+        position = position, 
+        show.legend = show.legend, 
+        inherit.aes = inherit.aes, 
+        params = list(trim = trim, 
+                      scale = scale, 
+                      draw_quantiles = draw_quantiles, 
+                      na.rm = na.rm, ...)
+        )
+}
+
+
+#make subset of scoress that only contains MkP data
+MkP <- subset(scores_anno, Pops_AllCells=="CL22_MkP")
+
+#plot split violin using ggplot
+ggplot(subset(MkP, Tissue=="DODBM" | Tissue == "DODSPL"), aes(x= Cluster_leiden.1.2, y= Meg.priming.score, fill=as.factor(Tissue))) +
+  geom_split_violin(size=0.2, aes(x=as.factor(Cluster_leiden.1.2), col=as.factor(Tissue)), trim=FALSE, 
+          groupName='Tissue') + 
+  stat_summary(fun.y=median, geom="crossbar", size=0.2,
+               width = 0.5, color="black", aes(x=as.factor(Cluster_leiden.1.2)), 
+          groupName='Tissue', position = position_dodge(0.7)) +  
+  scale_color_manual(breaks = c("DODBM","DODSPL"), values=c("black", "black")) +
+  scale_fill_manual(breaks = c("DODBM","DODSPL"), values=c("#5d7bf5", "#75f75e")) +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size=10, angle=90,hjust=0.95,vjust=0.2)) + 
+  theme(legend.title=element_blank()) +
+  ggtitle("Mk_score")  + coord_fixed(ratio=1)
+```
+
+
+## Plot BM-type / SPL-type score by tissue (Figure 4k)
+```{r}
+#subset HSC/MPPs
+score_HSC <- subset(scores_anno, Pops_AllCells == "CL4_HSC/MPP1" | Pops_AllCells == "CL0_HSC/MPP2" | Pops_AllCells == "CL5_HSC/MPP3" | Pops_AllCells == "CL11_HSC/MPP4" | Pops_AllCells == "CL21_HSC/MPP5")
+
+
+## Plot BM-type / SPL-type score by tissue
+#DODBM
+ggplot(subset(score_HSC, Tissue == "DODBM"), aes(x=BM.type.Score, y=SPL.type.score, fill=Tissue)) + geom_point(aes(col=Tissue), alpha=1, size=0.1)  + guides(color = guide_legend(override.aes = list(size=2))) +  scale_color_manual(labels = c("DODBM"), values=c("#6196ff")) + xlim(-0.1,1.3) + ylim(-0.2,1.1) + coord_fixed(ratio=1) + geom_abline(intercept = -0.35, slope=1.55) +   theme(axis.title = element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA)) + theme(legend.position = "none") + ggtitle("DODBM")
+
+
+#DODSPL
+ggplot(subset(score_HSC, Tissue == "DODSPL"), aes(x=BM.type.Score, y=SPL.type.score, fill=Tissue)) + geom_point(aes(col=Tissue), alpha=1, size=0.1)  + guides(color = guide_legend(override.aes = list(size=2))) +  scale_color_manual(labels = c("DODBM"), values=c("#28c710")) + xlim(-0.1,1.3) + ylim(-0.2,1.1) + coord_fixed(ratio=1) + geom_abline(intercept = -0.35, slope=1.55) +   theme(axis.title = element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA)) + theme(legend.position = "none") + ggtitle("DODBM")
+
+#DODPB
+ggplot(subset(score_HSC, Tissue == "DODPB"), aes(x=BM.type.Score, y=SPL.type.score, fill=Tissue)) + geom_point(aes(col=Tissue), alpha=1, size=0.1)  + guides(color = guide_legend(override.aes = list(size=2))) +  scale_color_manual(labels = c("DODBM"), values=c("#ffbb00")) + xlim(-0.1,1.3) + ylim(-0.2,1.1) + coord_fixed(ratio=1) + geom_abline(intercept = -0.35, slope=1.55) +   theme(axis.title = element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA)) + theme(legend.position = "none") + ggtitle("DODBM")
+
+#LDPB
+ggplot(subset(score_HSC, Tissue == "LDPB"), aes(x=BM.type.Score, y=SPL.type.score, fill=Tissue)) + geom_point(aes(col=Tissue), alpha=1, size=0.1)  + guides(color = guide_legend(override.aes = list(size=2))) +  scale_color_manual(labels = c("DODBM"), values=c("#bd1600")) + xlim(-0.1,1.3) + ylim(-0.2,1.1) + coord_fixed(ratio=1) + geom_abline(intercept = -0.35, slope=1.55) +   theme(axis.title = element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA)) + theme(legend.position = "none") + ggtitle("DODBM")
+```
+
+
+## Divide HSC/MPPs into 2 subsets by BM-type / SPL-type score (cells above/below slope)  (Figures 4l, S4i,j)
+```{r}
+pan <- which(score_HSC$BM.type.Score > ((score_HSC$SPL.type.score + 0.35)/1.55) & score_HSC$SPL.type.score < ((1.55*score_HSC$BM.type.Score) - 0.35))
+extra <- which(score_HSC$BM.type.Score < ((score_HSC$SPL.type.score + 0.35)/1.55) & score_HSC$SPL.type.score > ((1.55*score_HSC$BM.type.Score) - 0.35))
+
+score_HSC["score_anno"] <- c("NA")
+score_HSC[pan,]$score_anno <- c("pan") 
+score_HSC[extra,]$score_anno <- c("extra") 
+
+## Plot BM-type / SPL-type score by BM/SPL-type score groups
+ggplot(subset(score_HSC, Tissue == "DODBM" | Tissue == "DODSPL"), aes(x=BM.type.Score, y=SPL.type.score, fill=as.character(score_anno))) + geom_point(aes(col=as.character(score_anno)), alpha=1, size=0.1)  + guides(color = guide_legend(override.aes = list(size=2))) +  scale_color_manual(labels = c("pan", "extra"), values=c("#4f4f4e", "#fa8623")) + xlim(-0.1,1.3) + ylim(-0.2,1.1)  + coord_fixed(ratio=1)+   theme(axis.title = element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA)) + theme(legend.position = "none") 
+
+
+## Make table with counts for quantification
+counts <- matrix(nrow = 15, ncol=2)
+row.names(counts) <- c("BM_DOD1", "BM_DOD2", "BM_DOD3", "BM_DOD4", "SPL_DOD1", "SPL_DOD2", "SPL_DOD4", "PB_DOD1", "PB_DOD2", "PB_BP1c", "PB_BP37d", "PB_BP59h", "BP62j", "PB_TQ198", "PB_BP74")
+colnames(counts) <- c("pan_score", "extramed_score")
+counts[1,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD1" & Tissue == "DODBM"))
+counts[1,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD1" & Tissue == "DODBM"))
+counts[2,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD2" & Tissue == "DODBM"))
+counts[2,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD2" & Tissue == "DODBM"))
+counts[3,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD3" & Tissue == "DODBM"))
+counts[3,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD3" & Tissue == "DODBM"))
+counts[4,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD4" & Tissue == "DODBM"))
+counts[4,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD4" & Tissue == "DODBM"))
+counts[5,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD1" & Tissue == "DODSPL"))
+counts[5,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD1" & Tissue == "DODSPL"))
+counts[6,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD2" & Tissue == "DODSPL"))
+counts[6,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD2" & Tissue == "DODSPL"))
+counts[7,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD4" & Tissue == "DODSPL"))
+counts[7,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD4" & Tissue == "DODSPL"))
+counts[8,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD1" & Tissue == "DODPB"))
+counts[8,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD1" & Tissue == "DODPB"))
+counts[9,1] <- nrow(subset(score_HSC[pan,], Donor == "DOD2" & Tissue == "DODPB"))
+counts[9,2] <- nrow(subset(score_HSC[extra,], Donor == "DOD2" & Tissue == "DODPB"))
+counts[10,1] <- nrow(subset(score_HSC[pan,], Donor == "BP1c" ))
+counts[10,2] <- nrow(subset(score_HSC[extra,], Donor == "BP1c" ))
+counts[11,1] <- nrow(subset(score_HSC[pan,], Donor == "BP37d" ))
+counts[11,2] <- nrow(subset(score_HSC[extra,], Donor == "BP37d" ))
+counts[12,1] <- nrow(subset(score_HSC[pan,], Donor == "BP59h" ))
+counts[12,2] <- nrow(subset(score_HSC[extra,], Donor == "BP59h" ))
+counts[13,1] <- nrow(subset(score_HSC[pan,], Donor == "BP62j" ))
+counts[13,2] <- nrow(subset(score_HSC[extra,], Donor == "BP62j" ))
+counts[14,1] <- nrow(subset(score_HSC[pan,], Donor == "TQ198" ))
+counts[14,2] <- nrow(subset(score_HSC[extra,], Donor == "TQ198" ))
+counts[15,1] <- nrow(subset(score_HSC[pan,], Donor == "BP74" ))
+counts[15,2] <- nrow(subset(score_HSC[extra,], Donor == "BP74" ))
+
+write.csv(counts, "file_name.csv")
+```
+
+## Plot BM-type / SPL-type score by age (Figure 6b)
+```{r}
+#subset by age:
+Aged <- subset(score_HSC, Donor == "BP1c" | Donor == "BP37d" | Donor == "BP59h")
+Aged["Age"] <- as.character("Aged")
+Young <- subset(score_HSC, Donor == "BP62j" | Donor == "TQ198")  
+Young["Age"] <- as.character("Young")
+
+score_HSC_age <- rbind(Aged, Young)
+
+#LBPB_Young_contour 
+ggplot(subset(score_HSC_age, Age == "Young"), aes(x=BM.type.Score, y=SPL.type.score)) + stat_density2d(aes(fill=..level..,alpha=..level..), geom='polygon',colour='black', cex=0.2)  +
+  guides(alpha="none") +  scale_fill_continuous(low="#d9d9d9",high="#050505") + xlim(-0.1,1.3) + ylim(-0.2,1.1) + coord_fixed(ratio=1)+   theme(axis.title = element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA)) + theme(legend.position = "none") 
+
+
+#LBPB_Aged_contour
+ggplot(subset(score_HSC_age, Age == "Aged"), aes(x=BM.type.Score, y=SPL.type.score)) + stat_density2d(aes(fill=..level..,alpha=..level..), geom='polygon',colour='black', cex=0.2)  +
+  guides(alpha="none") +  scale_fill_continuous(low="#f7dfdf",high="#7a0000") + xlim(-0.1,1.3) + ylim(-0.2,1.1) + coord_fixed(ratio=1)+   theme(axis.title = element_blank()) + theme(legend.title=element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA)) + theme(legend.position = "none") 
+
+```
+
+## Plot pseudotime by HSPC group (Figure S1e)
+```{r, fig.height = 10, fig.width = 6, fig.align = "center"}
+pop_order <- c( "2_HSC/MPP","3_MPP_primed", "8_early_EMEBM","4_late_EMEBM", "9_early_MyP","5_late_MyP", "1_EryMyMix",   "7_MDP","6_LyP","0_ND")
+ggplot(lin_group, aes(x= factor(lin_group, level=pop_order), y=dpt_pseudotime)) +   geom_violin() + coord_flip() + ggtitle("All_by_lin_groups") + geom_hline(yintercept =  c(0, 0.25, 0.5, 0.75, 1), linetype="dashed", size=0.2) + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+```
+
+
+## Plot pseudotime of HSC/MPPs as histogram (Figure 4i)
+```{r}
+#limiting x-axis to max 0.15 (exclusion 160 out of 34,882 cells)
+ggplot(subset(lin_group, lin_group == "2_HSC/MPP"), aes(x = dpt_pseudotime)) +
+  geom_density(aes(color = Tissue)) + xlim(-0.01, 0.15) + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +   scale_color_manual(breaks = c("DODBM","DODSPL", "DODPB","LDPB"), values=c("#348ceb", "#2feb32", "#ebb32f", "#cf1800")) 
+```
+
+
+
+
+
+
+
+
+
+
+
