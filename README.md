@@ -36,3 +36,9 @@ and
 ``03_visualisations/``
 
 - Code focused on creating graphical output such as embedding plots (UMAP, FDG), violin plots, heatmaps, etc.
+
+## Analysis workflow and code mapping
+
+General workflow of the main analyses in this study. Coloured ids match an analysis with the respective filename prefix.
+
+![schema](./analyses_schema_guide.svg)
